@@ -28,7 +28,13 @@ app.MapGet("/api/info", () =>
     return Results.Json(info);
 });
 
-// Container health check endpoint
+// Container health check endpoints (supports both /health and /healthz; Cloud Run infrastructure reserves /healthz)
+app.MapGet("/health", () => Results.Ok(new
+{
+    status = "Healthy",
+    timestamp = DateTimeOffset.UtcNow
+}));
+
 app.MapGet("/healthz", () => Results.Ok(new
 {
     status = "Healthy",

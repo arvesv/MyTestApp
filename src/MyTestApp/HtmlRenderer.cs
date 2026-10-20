@@ -425,7 +425,7 @@ public static class HtmlRenderer
                     <div class="actions">
                         <button class="refresh-btn" onclick="window.location.reload()">Refresh</button>
                         <a href="/api/info" target="_blank">View JSON</a>
-                        <a href="/healthz" target="_blank">Health Check</a>
+                        <a href="/health" target="_blank">Health Check</a>
                     </div>
                 </footer>
             </div>

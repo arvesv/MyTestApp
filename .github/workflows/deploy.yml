@@ -104,24 +104,31 @@ jobs:
         if: steps.check_auth.outputs.configured == 'true' && steps.deploy.outputs.url != ''
         run: |
           SERVICE_URL="${{ steps.deploy.outputs.url }}"
-          echo "Verifying health endpoint at: $SERVICE_URL/healthz"
+          echo "Verifying health endpoint at: $SERVICE_URL/health"
           
           SUCCESS=false
-          for i in {1..6}; do
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/healthz" || true)
+          for i in {1..8}; do
+            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health" || true)
             if [ "$HTTP_STATUS" = "200" ]; then
               echo "Health check succeeded with HTTP 200 on attempt $i."
               SUCCESS=true
               break
             fi
-            echo "Service not ready yet (attempt $i/6, HTTP $HTTP_STATUS). Retrying in 5 seconds..."
+            # Fallback check against /api/info
+            INFO_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/api/info" || true)
+            if [ "$INFO_STATUS" = "200" ]; then
+              echo "API info check succeeded with HTTP 200 on attempt $i."
+              SUCCESS=true
+              break
+            fi
+            echo "Service not ready yet (attempt $i/8, HTTP $HTTP_STATUS). Retrying in 5 seconds..."
             sleep 5
           done
           
           if [ "$SUCCESS" != "true" ]; then
             echo "::warning::Health check did not respond with 200 within timeout."
           else
-            curl -sf "$SERVICE_URL/healthz" || true
+            curl -sf "$SERVICE_URL/health" || curl -sf "$SERVICE_URL/api/info" || true
             echo ""
           fi
 

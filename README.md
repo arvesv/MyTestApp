@@ -25,7 +25,8 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
 | :--- | :--- | :--- | :--- |
 | `/` | `GET` | HTML / JSON | Default dashboard showing OS, .NET version, timezone, git telemetry, and diagnostics. Returns JSON if `Accept: application/json` is sent. |
 | `/api/info` | `GET` | JSON | Diagnostic and version telemetry information in machine-readable JSON format. |
-| `/healthz` | `GET` | JSON | Health probe endpoint returning `{ "status": "Healthy" }`. |
+| `/health` | `GET` | JSON | Health probe endpoint returning `{ "status": "Healthy" }` (Cloud Run & general health checks). |
+| `/healthz` | `GET` | JSON | Kubernetes / container standard health probe endpoint returning `{ "status": "Healthy" }`. |
 
 ### Sample JSON Output (`/api/info`)
 
