@@ -79,8 +79,8 @@ jobs:
 
       - name: Create and push tag
         run: |
-          git tag -a "${{ steps.bump.outputs.version }}" -m "Release ${{ steps.bump.outputs.version }}"
-          git push origin "${{ steps.bump.outputs.version }}"
+          git tag -f -a "${{ steps.bump.outputs.version }}" -m "Release ${{ steps.bump.outputs.version }}"
+          git push origin "${{ steps.bump.outputs.version }}" --force
 
       - name: Update latest branch
         run: |
@@ -88,8 +88,9 @@ jobs:
 
       - name: Create GitHub Release
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release view "${{ steps.bump.outputs.version }}" >/dev/null 2>&1 || \
           gh release create "${{ steps.bump.outputs.version }}" \
             --title "${{ steps.bump.outputs.version }}" \
             --generate-notes
@@ -103,3 +104,4 @@ jobs:
     uses: ./.github/workflows/publish.yml
     with:
       tag_name: ${{ needs.release.outputs.version }}
+    secrets: inherit
