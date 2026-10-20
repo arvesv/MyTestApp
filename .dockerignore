@@ -1,0 +1,15 @@
+**/.git
+**/.github
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/*.user
+**/*.suo
+Dockerfile*
+compose*
+docker-compose*
+README.md
+LICENSE
+.templateengine
+
