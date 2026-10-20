@@ -117,10 +117,11 @@ docker compose down
 The repository includes GitHub Actions workflows:
 
 1. **CI Pipeline ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))**:
-   - Runs on pulls and pushes to validate .NET build and execute container smoke tests.
+   - Runs on pulls and pushes to validate the .NET build and execute container smoke tests using the shared [container smoke-test action](.github/actions/container-smoke-test/action.yml).
 2. **Publish Container ([`.github/workflows/publish.yml`](.github/workflows/publish.yml))**:
-   - Triggers on pushes to `master` and release tags (`v*`).
+   - Triggers on pushes to `master` and version tags (`v*`).
    - Runs container smoke test, extracts OCI metadata, builds the image, and publishes to **GitHub Container Registry (`ghcr.io/arvesv/mytestapp`)**.
+   - Reuses the same container smoke-test action as CI before publishing.
    - Tags applied:
      - Push to `master`: `latest`, `sha-<short>`
      - Release tag (e.g. `v1.0.0`): `1.0.0`, `1.0`, `1`, `v1.0.0`, `sha-<short>`
@@ -142,6 +143,9 @@ MyTestApp/
 │   ├── workflows/
 │   │   ├── ci.yml             # GitHub Actions CI pipeline
 │   │   └── publish.yml        # Build & publish container to ghcr.io
+│   ├── actions/
+│       └── container-smoke-test/
+│           └── action.yml     # Shared container build and smoke test
 │   └── dependabot.yml         # Automated dependency update configuration
 ├── src/
 │   └── MyTestApp/
