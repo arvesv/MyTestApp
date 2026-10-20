@@ -140,6 +140,7 @@ MyTestApp/
 │       ├── Program.cs         # Application entry point & endpoints
 │       └── SystemInfo.cs      # Diagnostics and system telemetry collector
 ├── .dockerignore              # Files excluded from Docker builds
+├── .gitattributes             # Git line ending & attribute definitions
 ├── .gitignore                 # Files excluded from Git version control
 ├── compose.yaml               # Local multi-container / compose definition
 ├── Dockerfile                 # Multi-stage container build definition
