@@ -1,0 +1,47 @@
+name: Cleanup Untagged Container Images
+
+on:
+  schedule:
+    # Run daily at 01:17 UTC (~03:17 CEST/local time) avoiding top-of-the-hour queue delays
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Simulate cleanup without deleting images (dry run)"
+        type: boolean
+        required: false
+        default: false
+      package_name:
+        description: "GHCR package name to clean up"
+        type: string
+        required: false
+        default: "mytestapp"
+      delete_tags:
+        description: "Tag pattern of images to clean up (e.g. sha-*)"
+        type: string
+        required: false
+        default: "sha-*"
+      exclude_tags:
+        description: "Tag pattern of images to strictly preserve (e.g. latest,master,v*,*.*)"
+        type: string
+        required: false
+        default: "latest,master,v*,*.*"
+
+jobs:
+  cleanup:
+    name: Delete Untagged and SHA Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Delete untagged and SHA-tagged images from GitHub Container Registry
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          package: ${{ inputs.package_name || 'mytestapp' }}
+          delete-untagged: true
+          delete-tags: ${{ inputs.delete_tags || 'sha-*' }}
+          exclude-tags: ${{ inputs.exclude_tags || 'latest,master,v*,*.*' }}
+          dry-run: ${{ inputs.dry_run || false }}

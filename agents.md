@@ -45,7 +45,13 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
   - Responsive HTML rendering: [`HtmlRenderer.cs`](src/MyTestApp/HtmlRenderer.cs)
 - **Containerization**: Multi-stage [`Dockerfile`](Dockerfile) with non-root user (`app`)
 - **Orchestration**: [`compose.yaml`](compose.yaml)
-- **CI Workflow**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+- **CI/CD Workflows**:
+  - CI Pipeline: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  - Container Publish: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
+  - Release Pipeline: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+  - GHCR Package Cleanup: [`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml)
+- **Automation Scripts**:
+  - Version bump: [`scripts/bump-version.js`](scripts/bump-version.js)
 
 ---
 
@@ -56,6 +62,7 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
 | **Restore** | `dotnet restore` |
 | **Build** | `dotnet build` |
 | **Run locally** | `dotnet run --project src/MyTestApp` |
+| **Bump version** | `node scripts/bump-version.js [patch\|minor\|major\|custom]` |
 | **Build container** | `docker build -t mytestapp:latest .` |
 | **Run container** | `docker run -d -p 8080:8080 --name mytestapp mytestapp:latest` |
 | **Health check** | `curl -f http://localhost:8080/healthz` |
@@ -69,4 +76,3 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
 2. **Offline & Air-gapped Friendly**: Do not depend on external CDNs or external web services for styling or scripts in the web application.
 3. **Container Security**: Always follow container best practices, such as using multi-stage builds and running with the non-root `$APP_UID` user.
 4. **Documentation**: Keep [`README.md`](README.md) and [`agents.md`](agents.md) synchronized with any changes to build steps, endpoints, or environment variables.
-

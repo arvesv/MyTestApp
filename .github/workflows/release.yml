@@ -1,0 +1,105 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - custom
+      custom_version:
+        description: 'Custom version (only if "custom" is selected, e.g. 0.2.0)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Prepare Release & Tag
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      raw_version: ${{ steps.bump.outputs.raw_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore dependencies
+        run: dotnet restore MyTestApp.sln
+
+      - name: Build solution (Release)
+        run: dotnet build MyTestApp.sln --configuration Release --no-restore
+
+      - name: Bump version & Update files
+        id: bump
+        run: |
+          TARGET="${{ inputs.bump }}"
+          if [ "$TARGET" = "custom" ]; then
+            TARGET="${{ inputs.custom_version }}"
+          fi
+          if [ -z "$TARGET" ]; then
+            echo "::error::Custom version was selected but left empty!"
+            exit 1
+          fi
+          node scripts/bump-version.js "$TARGET"
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add src/MyTestApp/MyTestApp.csproj compose.yaml README.md
+          git commit -m "chore: release ${{ steps.bump.outputs.version }} [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Create and push tag
+        run: |
+          git tag -a "${{ steps.bump.outputs.version }}" -m "Release ${{ steps.bump.outputs.version }}"
+          git push origin "${{ steps.bump.outputs.version }}"
+
+      - name: Update latest branch
+        run: |
+          git push origin HEAD:refs/heads/latest --force
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.bump.outputs.version }}" \
+            --title "${{ steps.bump.outputs.version }}" \
+            --generate-notes
+
+  publish-container:
+    name: Build & Publish Container
+    needs: release
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/publish.yml
+    with:
+      tag_name: ${{ needs.release.outputs.version }}

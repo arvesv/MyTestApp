@@ -13,8 +13,8 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
 - **Clean Modern UI:** Responsive CSS with dark/light mode support, zero external CDN dependencies (works completely offline).
 - **Content Negotiation & JSON API:** Request JSON directly via `Accept: application/json` or visit `/api/info`.
 - **Health Check Endpoint:** Includes `/healthz` for container orchestration and load balancers.
-- **Container Ready:** Multi-stage `Dockerfile` with non-root security (`app` user) and `docker-compose.yml` support.
-- **Automated CI Pipeline:** GitHub Actions workflow covering restore, build, container image creation, and automated smoke testing.
+- **Container Ready:** Multi-stage `Dockerfile` with non-root security (`app` user) and `compose.yaml` support.
+- **Automated CI/CD Pipelines:** GitHub Actions workflows covering build, test, multi-arch/container publishing, releases, and container registry cleanup.
 
 ---
 
@@ -114,21 +114,30 @@ docker compose down
 
 ## Continuous Integration & Delivery (CI/CD)
 
-The repository includes GitHub Actions workflows:
+The repository includes GitHub Actions workflows modeled after the [Nexus](https://github.com/arvesv/Nexus) project:
 
 1. **CI Pipeline ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))**:
-   - Runs on pulls and pushes to validate the .NET build and execute container smoke tests using the shared [container smoke-test action](.github/actions/container-smoke-test/action.yml).
+   - Runs on pulls and pushes to `master` to validate the .NET build and execute container smoke tests using the shared [container smoke-test action](.github/actions/container-smoke-test/action.yml).
 2. **Publish Container ([`.github/workflows/publish.yml`](.github/workflows/publish.yml))**:
-   - Triggers on pushes to `master` and version tags (`v*`).
+   - Triggers on pushes to `master`, manual `workflow_dispatch`, or when invoked by the Release pipeline (`workflow_call`).
    - Runs container smoke test, extracts OCI metadata, builds the image, and publishes to **GitHub Container Registry (`ghcr.io/arvesv/mytestapp`)**.
-   - Reuses the same container smoke-test action as CI before publishing.
    - Tags applied:
-     - Push to `master`: `latest`, `sha-<short>`
-     - Release tag (e.g. `v1.0.0`): `1.0.0`, `1.0`, `1`, `v1.0.0`, `sha-<short>`
+     - Push to `master`: branch `:master` and short `:sha-<commit>` (without overwriting `:latest`).
+     - Release tag (e.g. `v0.1.0`): `:latest`, `:0.1.0`, `:0.1`, `:0`, `:v0.1.0`.
+3. **Release Pipeline ([`.github/workflows/release.yml`](.github/workflows/release.yml))**:
+   - Manual trigger via `workflow_dispatch` with semantic version bump (`patch`, `minor`, `major`, or `custom`).
+   - Restores dependencies and builds the solution in `Release` mode.
+   - Automatically bumps version in `src/MyTestApp/MyTestApp.csproj`, `compose.yaml`, and `README.md` using `scripts/bump-version.js`.
+   - Tags the repository with `vX.Y.Z`, updates the `latest` branch to the release commit, creates a GitHub Release with auto-generated release notes, and triggers container publication via `publish.yml`.
+4. **Cleanup Untagged Images ([`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml))**:
+   - Scheduled daily (01:17 UTC) or manual cleanup of untagged and stale `sha-*` images from GHCR using `dataaxiom/ghcr-cleanup-action@v1`.
+   - Strictly excludes and preserves images that have release or branch tags (`latest,master,v*,*.*`).
+5. **Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml))**:
+   - Weekly automated security and version updates for GitHub Actions, NuGet packages, and Dockerfile base images.
 
 To pull and run the published container from GHCR:
 ```bash
-docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:latest
+docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:0.1.0
 ```
 
 ---
@@ -139,29 +148,33 @@ docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:latest
 MyTestApp/
 ├── .github/
 │   ├── rulesets/
-│   │   └── master-protection.json # Branch protection ruleset export
+│   │   └── master-protection.json        # Branch protection ruleset export
 │   ├── workflows/
-│   │   ├── ci.yml             # GitHub Actions CI pipeline
-│   │   └── publish.yml        # Build & publish container to ghcr.io
+│   │   ├── ci.yml                        # GitHub Actions CI pipeline
+│   │   ├── publish.yml                   # Build & publish container to ghcr.io
+│   │   ├── release.yml                   # Release workflow with version bump & GH release
+│   │   └── cleanup-untagged-images.yml   # Scheduled/manual GHCR untagged image cleanup
 │   ├── actions/
-│       └── container-smoke-test/
-│           └── action.yml     # Shared container build and smoke test
-│   └── dependabot.yml         # Automated dependency update configuration
+│   │   └── container-smoke-test/
+│   │       └── action.yml                # Shared container build and smoke test
+│   └── dependabot.yml                    # Automated dependency update configuration
+├── scripts/
+│   └── bump-version.js                   # Semver bump script for csproj and doc references
 ├── src/
 │   └── MyTestApp/
 │       ├── Properties/
 │       │   └── launchSettings.json
-│       ├── HtmlRenderer.cs    # Responsive HTML dashboard renderer
-│       ├── MyTestApp.csproj   # ASP.NET Core project file
-│       ├── Program.cs         # Application entry point & endpoints
-│       └── SystemInfo.cs      # Diagnostics and system telemetry collector
-├── .dockerignore              # Files excluded from Docker builds
-├── .gitattributes             # Git line ending & attribute definitions
-├── .gitignore                 # Files excluded from Git version control
-├── compose.yaml               # Local multi-container / compose definition
-├── Dockerfile                 # Multi-stage container build definition
+│       ├── HtmlRenderer.cs               # Responsive HTML dashboard renderer
+│       ├── MyTestApp.csproj              # ASP.NET Core project file
+│       ├── Program.cs                    # Application entry point & endpoints
+│       └── SystemInfo.cs                 # Diagnostics and system telemetry collector
+├── .dockerignore                         # Files excluded from Docker builds
+├── .gitattributes                        # Git line ending & attribute definitions
+├── .gitignore                            # Files excluded from Git version control
+├── compose.yaml                          # Local multi-container / compose definition
+├── Dockerfile                            # Multi-stage container build definition
 ├── LICENSE
-├── MyTestApp.sln              # Solution file
-├── README.md                  # Project documentation
-└── agents.md                  # Guidelines for AI agents (commit attribution & conventions)
+├── MyTestApp.sln                         # Solution file
+├── README.md                             # Project documentation
+└── agents.md                             # Guidelines for AI agents (commit attribution & conventions)
 ```
