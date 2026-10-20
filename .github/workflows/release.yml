@@ -105,3 +105,15 @@ jobs:
     with:
       tag_name: ${{ needs.release.outputs.version }}
     secrets: inherit
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: [release, publish-container]
+    permissions:
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: 'production'
+      image_tag: ${{ needs.release.outputs.version }}
+    secrets: inherit

@@ -49,6 +49,7 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
   - CI Pipeline: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
   - Container Publish: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
   - Release Pipeline: [`.github/workflows/release.yml`](.github/workflows/release.yml)
+  - Deploy Pipeline: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
   - GHCR Package Cleanup: [`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml)
 - **Automation Scripts**:
   - Version bump: [`scripts/bump-version.js`](scripts/bump-version.js)

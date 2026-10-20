@@ -139,10 +139,16 @@ The repository includes GitHub Actions workflows modeled after the [Nexus](https
    - Restores dependencies and builds the solution in `Release` mode.
    - Automatically bumps version in `src/MyTestApp/MyTestApp.csproj`, `compose.yaml`, and `README.md` using `scripts/bump-version.js`.
    - Tags the repository with `vX.Y.Z`, updates the `latest` branch to the release commit, creates a GitHub Release with auto-generated release notes, and triggers container publication via `publish.yml`.
-4. **Cleanup Untagged Images ([`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml))**:
+4. **Deploy Pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))**:
+   - Deploys container image to **Google Cloud Run** in a region close to Oslo (`europe-north2` Stockholm or `europe-north1` Finland) using a GitHub Environment (`production` or `oslo`).
+   - Configured via environment variables (`GCP_REGION`, `GCP_SERVICE_NAME`, `GCP_PROJECT_ID`).
+   - Supports keyless Workload Identity Federation (`GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT`) and Service Account keys (`GCP_SA_KEY`).
+   - Triggerable manually (`workflow_dispatch`), as a reusable step in the release pipeline (`workflow_call`), or automatically following successful container publishing on `master` (`workflow_run`).
+   - Includes automatic post-deployment health check against `/healthz`.
+5. **Cleanup Untagged Images ([`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml))**:
    - Scheduled daily (01:17 UTC) or manual cleanup of untagged and stale `sha-*` images from GHCR using `dataaxiom/ghcr-cleanup-action@v1`.
    - Strictly excludes and preserves images that have release or branch tags (`latest,master,v*,*.*`).
-5. **Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml))**:
+6. **Dependabot ([`.github/dependabot.yml`](.github/dependabot.yml))**:
    - Weekly automated security and version updates for GitHub Actions, NuGet packages, and Dockerfile base images.
 
 To pull and run the published container from GHCR:
@@ -163,6 +169,7 @@ MyTestApp/
 │   │   ├── ci.yml                        # GitHub Actions CI pipeline
 │   │   ├── publish.yml                   # Build & publish container to ghcr.io
 │   │   ├── release.yml                   # Release workflow with version bump & GH release
+│   │   ├── deploy.yml                    # Deploy container to GCP Cloud Run (near Oslo)
 │   │   └── cleanup-untagged-images.yml   # Scheduled/manual GHCR untagged image cleanup
 │   ├── actions/
 │   │   └── container-smoke-test/
