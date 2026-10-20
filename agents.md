@@ -66,7 +66,7 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
 | **Bump version** | `node scripts/bump-version.js [patch\|minor\|major\|custom]` |
 | **Build container** | `docker build -t mytestapp:latest .` |
 | **Run container** | `docker run -d -p 8080:8080 --name mytestapp mytestapp:latest` |
-| **Health check** | `curl -f http://localhost:8080/healthz` |
+| **Health check** | `curl -f http://localhost:8080/health` (or `/healthz`) |
 | **JSON telemetry** | `curl -f http://localhost:8080/api/info` |
 
 ---
