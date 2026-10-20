@@ -128,8 +128,9 @@ The pipeline automatically runs on pushes and pull requests to `master` and `mai
 ```text
 MyTestApp/
 ├── .github/
-│   └── workflows/
-│       └── ci.yml             # GitHub Actions CI pipeline
+│   ├── workflows/
+│   │   └── ci.yml             # GitHub Actions CI pipeline
+│   └── dependabot.yml         # Automated dependency update configuration
 ├── src/
 │   └── MyTestApp/
 │       ├── Properties/
