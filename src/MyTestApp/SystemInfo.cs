@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace MyTestApp;
@@ -36,6 +37,14 @@ public record SystemInfo
     public required string AppUptime { get; init; }
     public required string AppStartTime { get; init; }
 
+    // Build & Git Version Telemetry
+    public required string GitCommitSha { get; init; }
+    public required string BuildDate { get; init; }
+    public required string GitBranch { get; init; }
+    public string? ReleaseVersion { get; init; }
+
+    public string ShortCommitSha => GitCommitSha.Length > 7 ? GitCommitSha[..7] : GitCommitSha;
+
     public static SystemInfo Collect(string environmentName, DateTimeOffset startTime)
     {
         var localZone = TimeZoneInfo.Local;
@@ -53,6 +62,78 @@ public record SystemInfo
 
         var offset = localZone.GetUtcOffset(nowLocal);
         var formattedOffset = $"{(offset >= TimeSpan.Zero ? "+" : "-")}{offset.Duration():hh\\:mm}";
+
+        // Git & Build Telemetry Resolution
+        static string? GetEnv(string name)
+        {
+            var val = Environment.GetEnvironmentVariable(name)?.Trim();
+            return string.IsNullOrEmpty(val) ? null : val;
+        }
+
+        var appVersion = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "0.1.1";
+
+        // 1. Commit SHA
+        var commitSha = GetEnv("GIT_COMMIT_SHA");
+        if (string.IsNullOrEmpty(commitSha))
+        {
+            var infoVer = typeof(Program).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrEmpty(infoVer) && infoVer.Contains('+'))
+            {
+                commitSha = infoVer.Split('+')[1].Trim();
+            }
+        }
+        if (string.IsNullOrEmpty(commitSha))
+        {
+            commitSha = TryRunGit("rev-parse HEAD") ?? "unknown";
+        }
+
+        // 2. Build Date
+        var buildTime = GetEnv("BUILD_TIME");
+        if (string.IsNullOrEmpty(buildTime))
+        {
+            var assemblyPath = Assembly.GetExecutingAssembly().Location;
+            if (File.Exists(assemblyPath))
+            {
+                buildTime = File.GetLastWriteTimeUtc(assemblyPath).ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+            }
+            else
+            {
+                buildTime = startTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+            }
+        }
+
+        // 3. Branch Name
+        var branch = GetEnv("GIT_BRANCH") ?? TryRunGit("rev-parse --abbrev-ref HEAD") ?? "master";
+        if (branch.StartsWith("refs/heads/"))
+        {
+            branch = branch["refs/heads/".Length..];
+        }
+
+        // 4. Tag / Release Version
+        var tag = GetEnv("GIT_TAG");
+        if (string.IsNullOrEmpty(tag))
+        {
+            tag = TryRunGit("describe --tags --exact-match");
+        }
+
+        // Determine if running on master branch:
+        // Considered on master if branch is "master" and not built from an explicit release tag
+        bool isOnMaster = string.Equals(branch, "master", StringComparison.OrdinalIgnoreCase)
+                          && string.IsNullOrWhiteSpace(tag);
+
+        string? releaseVersion = null;
+        if (!isOnMaster)
+        {
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                releaseVersion = tag.StartsWith('v') ? tag : $"v{tag}";
+            }
+            else
+            {
+                releaseVersion = $"v{appVersion}";
+            }
+        }
 
         return new SystemInfo
         {
@@ -81,8 +162,45 @@ public record SystemInfo
             RunningInContainer = isContainer,
             EnvironmentName = environmentName,
             AppUptime = FormatTimeSpan(uptime),
-            AppStartTime = startTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'")
+            AppStartTime = startTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'"),
+
+            GitCommitSha = commitSha,
+            BuildDate = buildTime,
+            GitBranch = branch,
+            ReleaseVersion = releaseVersion
         };
+    }
+
+    private static string? TryRunGit(string arguments)
+    {
+        try
+        {
+            using var proc = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = arguments,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                }
+            };
+            if (proc.Start())
+            {
+                var output = proc.StandardOutput.ReadToEnd().Trim();
+                if (proc.WaitForExit(1000) && proc.ExitCode == 0 && !string.IsNullOrEmpty(output))
+                {
+                    return output;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore if git command fails or is not available in environment
+        }
+        return null;
     }
 
     private static string FormatTimeSpan(TimeSpan ts)

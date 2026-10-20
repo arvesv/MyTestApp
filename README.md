@@ -8,6 +8,7 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
 
 - **Host Diagnostics:** Displays host operating system, architecture, platform, host/machine name, and process details.
 - **.NET Runtime Info:** Shows .NET SDK/runtime version, CLR version, and runtime identifier.
+- **Build & Version Telemetry:** Displays git commit SHA (with GitHub link), build date/time, branch name, and release version tag (if not on master).
 - **Time & Timezone Details:** Shows configured timezone ID, display name, UTC offset, current local time, UTC time, and daylight saving time status.
 - **System & Resource Stats:** Shows container status (Docker/OCI), CPU core count, memory working set, and application uptime.
 - **Clean Modern UI:** Responsive CSS with dark/light mode support, zero external CDN dependencies (works completely offline).
@@ -22,8 +23,8 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
 
 | Endpoint | Method | Format | Description |
 | :--- | :--- | :--- | :--- |
-| `/` | `GET` | HTML / JSON | Default dashboard showing OS, .NET version, timezone, and diagnostics. Returns JSON if `Accept: application/json` is sent. |
-| `/api/info` | `GET` | JSON | Diagnostic information in machine-readable JSON format. |
+| `/` | `GET` | HTML / JSON | Default dashboard showing OS, .NET version, timezone, git telemetry, and diagnostics. Returns JSON if `Accept: application/json` is sent. |
+| `/api/info` | `GET` | JSON | Diagnostic and version telemetry information in machine-readable JSON format. |
 | `/healthz` | `GET` | JSON | Health probe endpoint returning `{ "status": "Healthy" }`. |
 
 ### Sample JSON Output (`/api/info`)
@@ -52,9 +53,17 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
   "runningInContainer": true,
   "environmentName": "Production",
   "appUptime": "1m 32s",
-  "appStartTime": "2026-10-20 13:16:05 UTC"
+  "appStartTime": "2026-10-20 13:16:05 UTC",
+  "gitCommitSha": "006420313cae697ce32fdbddcb0319ca03e07cb8",
+  "buildDate": "2026-10-20T17:28:43Z",
+  "gitBranch": "master",
+  "releaseVersion": null,
+  "shortCommitSha": "0064203"
 }
 ```
+
+> [!NOTE]
+> `releaseVersion` is populated with the release tag (e.g. `"v0.1.1"`) when running on a release or non-master branch; on the untagged `master` branch, it is `null`.
 
 ---
 
@@ -120,6 +129,7 @@ The repository includes GitHub Actions workflows modeled after the [Nexus](https
    - Runs on pulls and pushes to `master` to validate the .NET build and execute container smoke tests using the shared [container smoke-test action](.github/actions/container-smoke-test/action.yml).
 2. **Publish Container ([`.github/workflows/publish.yml`](.github/workflows/publish.yml))**:
    - Triggers on pushes to `master`, manual `workflow_dispatch`, or when invoked by the Release pipeline (`workflow_call`).
+   - Collects Git commit SHA, branch, release tag, and build timestamp into container build args.
    - Runs container smoke test, extracts OCI metadata, builds the image, and publishes to **GitHub Container Registry (`ghcr.io/arvesv/mytestapp`)**.
    - Tags applied:
      - Push to `master`: branch `:master` and short `:sha-<commit>` (without overwriting `:latest`).

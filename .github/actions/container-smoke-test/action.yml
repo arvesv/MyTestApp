@@ -9,7 +9,15 @@ runs:
   steps:
     - name: Build container image
       shell: bash
-      run: docker build -t "${{ inputs.image-tag }}" .
+      run: |
+        GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+        GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+        BUILD_TIME=$(date -u +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "")
+        docker build \
+          --build-arg GIT_COMMIT_SHA="$GIT_SHA" \
+          --build-arg GIT_BRANCH="$GIT_BRANCH" \
+          --build-arg BUILD_TIME="$BUILD_TIME" \
+          -t "${{ inputs.image-tag }}" .
 
     - name: Run container smoke test
       shell: bash
@@ -31,7 +39,9 @@ runs:
       shell: bash
       run: |
         curl -f -s http://localhost:8080/api/info | jq -e '.operatingSystem' > /dev/null
+        curl -f -s http://localhost:8080/api/info | jq -e '.gitCommitSha' > /dev/null
         curl -f -s http://localhost:8080/ | grep -q "System Diagnostics"
+        curl -f -s http://localhost:8080/ | grep -q "Build &amp; Version"
 
     - name: Cleanup smoke test container
       if: always()

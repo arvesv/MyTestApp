@@ -4,6 +4,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        GIT_COMMIT_SHA: ${GIT_COMMIT_SHA:-}
+        GIT_BRANCH: ${GIT_BRANCH:-master}
+        GIT_TAG: ${GIT_TAG:-}
+        BUILD_TIME: ${BUILD_TIME:-}
     container_name: mytestapp
     ports:
       - "8080:8080"

@@ -50,6 +50,33 @@ jobs:
         with:
           ref: ${{ inputs.tag_name != '' && inputs.tag_name || github.ref }}
 
+      - name: Get Git commit info
+        id: git_info
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          
+          # Determine tag
+          TAG="${{ inputs.tag_name }}"
+          if [ -z "$TAG" ] && [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -z "$TAG" ] && [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          
+          # Determine branch
+          BRANCH=""
+          if [ "${{ github.ref_type }}" = "branch" ]; then
+            BRANCH="${{ github.ref_name }}"
+          elif [ -n "$TAG" ]; then
+            BRANCH="master"
+          fi
+          echo "branch=$BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Get build timestamp
+        id: time
+        run: echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -89,5 +116,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            GIT_COMMIT_SHA=${{ steps.git_info.outputs.sha }}
+            GIT_BRANCH=${{ steps.git_info.outputs.branch }}
+            GIT_TAG=${{ steps.git_info.outputs.tag }}
+            BUILD_TIME=${{ steps.time.outputs.timestamp }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

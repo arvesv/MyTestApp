@@ -8,6 +8,31 @@ public static class HtmlRenderer
     {
         string Encode(object? val) => WebUtility.HtmlEncode(val?.ToString() ?? string.Empty);
 
+        var releaseVersionRow = info.ReleaseVersion != null
+            ? $"""
+              <div class="row">
+                  <span class="label">Release Version</span>
+                  <span class="value">
+                      <a href="https://github.com/arvesv/MyTestApp/releases/tag/{Encode(info.ReleaseVersion)}" target="_blank" rel="noopener noreferrer" class="release-link" title="View release on GitHub">
+                          <span class="pill pill-release">{Encode(info.ReleaseVersion)}</span>
+                      </a>
+                  </span>
+              </div>
+              """
+            : string.Empty;
+
+        var commitShaDisplay = info.GitCommitSha != "unknown"
+            ? $"""<a href="https://github.com/arvesv/MyTestApp/commit/{Encode(info.GitCommitSha)}" target="_blank" rel="noopener noreferrer" class="commit-link" title="View commit on GitHub"><code class="sha">{Encode(info.ShortCommitSha)}</code></a>"""
+            : $"""<code class="sha">{Encode(info.ShortCommitSha)}</code>""";
+
+        var headerVersionBadge = info.ReleaseVersion != null
+            ? $"<span>&bull;</span><span>{Encode(info.ReleaseVersion)}</span>"
+            : $"<span>&bull;</span><span>{Encode(info.GitBranch)}</span>";
+
+        var footerVersionInfo = info.ReleaseVersion != null
+            ? $"&bull; <a href=\"https://github.com/arvesv/MyTestApp/releases/tag/{Encode(info.ReleaseVersion)}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"commit-link\">{Encode(info.ReleaseVersion)}</a> "
+            : string.Empty;
+
         return $$"""
         <!DOCTYPE html>
         <html lang="en">
@@ -174,18 +199,50 @@ public static class HtmlRenderer
                     font-weight: 600;
                 }
 
+                .pill-release {
+                    background: var(--badge-green-bg);
+                    color: var(--badge-green-text);
+                }
+
+                .pill-branch {
+                    background: var(--accent-light);
+                    color: var(--accent);
+                }
+
+                code.sha {
+                    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+                    font-size: 0.85rem;
+                    background: rgba(125, 125, 125, 0.12);
+                    padding: 0.15rem 0.4rem;
+                    border-radius: 4px;
+                }
+
+                a.commit-link {
+                    color: var(--accent);
+                    text-decoration: none;
+                }
+
+                a.commit-link:hover {
+                    text-decoration: underline;
+                }
+
+                a.release-link {
+                    text-decoration: none;
+                }
+
                 footer {
                     text-align: center;
                     color: var(--text-secondary);
                     font-size: 0.875rem;
                     padding-top: 1rem;
+                    line-height: 1.6;
                 }
 
                 footer a {
                     color: var(--accent);
                     text-decoration: none;
                     font-weight: 500;
-                    margin: 0 0.5rem;
+                    margin: 0 0.25rem;
                 }
 
                 footer a:hover {
@@ -222,13 +279,35 @@ public static class HtmlRenderer
                     <div class="header-badge">
                         <span class="status-dot"></span>
                         <span>Service Online</span>
+                        {{headerVersionBadge}}
                     </div>
                     <h1>System Diagnostics</h1>
-                    <p class="subtitle">Host environment, runtime platform &amp; timezone details</p>
+                    <p class="subtitle">Host environment, runtime platform, timezone &amp; build telemetry</p>
                 </header>
 
                 <div class="grid">
-                    <!-- Operating System -->
+                    <!-- Build & Version Info -->
+                    <div class="card">
+                        <div class="card-title">
+                            <span class="card-icon">&#x1F680;</span>
+                            <span>Build &amp; Version</span>
+                        </div>
+                        <div class="row">
+                            <span class="label">Git Commit</span>
+                            <span class="value">{{commitShaDisplay}}</span>
+                        </div>
+                        <div class="row">
+                            <span class="label">Date of Build</span>
+                            <span class="value">{{Encode(info.BuildDate)}}</span>
+                        </div>
+                        <div class="row">
+                            <span class="label">Branch Name</span>
+                            <span class="value"><span class="pill pill-branch">{{Encode(info.GitBranch)}}</span></span>
+                        </div>
+                        {{releaseVersionRow}}
+                    </div>
+
+                    <!-- Host Operating System -->
                     <div class="card">
                         <div class="card-title">
                             <span class="card-icon">&#x1F4BB;</span>
@@ -342,7 +421,7 @@ public static class HtmlRenderer
                 </div>
 
                 <footer>
-                    <p>MyTestApp &bull; Rendered at {{Encode(info.CurrentUtcTime)}}</p>
+                    <p>MyTestApp {{footerVersionInfo}}&bull; Commit {{commitShaDisplay}} ({{Encode(info.GitBranch)}}) &bull; Built {{Encode(info.BuildDate)}} &bull; Rendered at {{Encode(info.CurrentUtcTime)}}</p>
                     <div class="actions">
                         <button class="refresh-btn" onclick="window.location.reload()">Refresh</button>
                         <a href="/api/info" target="_blank">View JSON</a>
@@ -355,4 +434,3 @@ public static class HtmlRenderer
         """;
     }
 }
-
