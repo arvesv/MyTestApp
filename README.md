@@ -128,6 +128,8 @@ The pipeline automatically runs on pushes and pull requests to `master` and `mai
 ```text
 MyTestApp/
 ├── .github/
+│   ├── rulesets/
+│   │   └── master-protection.json # Branch protection ruleset export
 │   ├── workflows/
 │   │   └── ci.yml             # GitHub Actions CI pipeline
 │   └── dependabot.yml         # Automated dependency update configuration
