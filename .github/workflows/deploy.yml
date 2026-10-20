@@ -49,15 +49,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
-      - name: Determine Image Tag
+      - name: Determine Image
         id: image_info
         run: |
           TAG="${{ inputs.image_tag }}"
           if [ -z "$TAG" ]; then
             TAG="latest"
           fi
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="ghcr.io/$REPO_LOWER:$TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Selected container image tag: $TAG"
+          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+          echo "Selected container image: $IMAGE"
 
       - name: Verify GCP Authentication Setup
         id: check_auth
@@ -92,7 +95,7 @@ jobs:
         uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d  # v3.0.1
         with:
           service: ${{ vars.GCP_SERVICE_NAME || 'mytestapp' }}
-          image: ghcr.io/${{ github.repository }}:${{ steps.image_info.outputs.tag }}
+          image: ${{ steps.image_info.outputs.image }}
           region: ${{ vars.GCP_REGION || 'europe-north2' }}
           project_id: ${{ vars.GCP_PROJECT_ID || '' }}
           flags: '--allow-unauthenticated'
@@ -129,5 +132,5 @@ jobs:
           echo "- **Environment**: \`${{ inputs.environment != '' && inputs.environment || 'production' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Service**: \`${{ vars.GCP_SERVICE_NAME || 'mytestapp' }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Region**: \`${{ vars.GCP_REGION || 'europe-north2' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: \`ghcr.io/${{ github.repository }}:${{ steps.image_info.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ steps.image_info.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Service URL**: [${{ steps.deploy.outputs.url }}](${{ steps.deploy.outputs.url }})" >> $GITHUB_STEP_SUMMARY
