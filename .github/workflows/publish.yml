@@ -1,0 +1,92 @@
+name: Publish Container
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - 'v*.*.*'
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  smoke-test:
+    name: Build & Smoke Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build local container image
+        run: docker build -t mytestapp:test .
+
+      - name: Run container smoke test
+        run: |
+          docker run -d --name smoke-test -p 8080:8080 mytestapp:test
+          for i in {1..15}; do
+            if curl -s http://localhost:8080/healthz | grep -q "Healthy"; then
+              echo "Container is healthy!"
+              exit 0
+            fi
+            echo "Waiting for container to become healthy..."
+            sleep 1
+          done
+          echo "Health check failed!"
+          docker logs smoke-test
+          exit 1
+
+      - name: Verify endpoints
+        run: |
+          curl -f -s http://localhost:8080/api/info | grep -q "operatingSystem"
+          curl -f -s http://localhost:8080/ | grep -q "System Diagnostics"
+
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f smoke-test || true
+
+  publish:
+    name: Build & Push to GHCR
+    needs: smoke-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

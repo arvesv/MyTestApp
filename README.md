@@ -112,14 +112,23 @@ docker compose down
 
 ---
 
-## Continuous Integration (CI Pipeline)
+## Continuous Integration & Delivery (CI/CD)
 
-The repository includes a GitHub Actions pipeline configured in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+The repository includes GitHub Actions workflows:
 
-The pipeline automatically runs on pushes and pull requests to `master` and `main`:
+1. **CI Pipeline ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))**:
+   - Runs on pulls and pushes to validate .NET build and execute container smoke tests.
+2. **Publish Container ([`.github/workflows/publish.yml`](.github/workflows/publish.yml))**:
+   - Triggers on pushes to `master` and release tags (`v*`).
+   - Runs container smoke test, extracts OCI metadata, builds the image, and publishes to **GitHub Container Registry (`ghcr.io/arvesv/mytestapp`)**.
+   - Tags applied:
+     - Push to `master`: `latest`, `sha-<short>`
+     - Release tag (e.g. `v1.0.0`): `1.0.0`, `1.0`, `1`, `v1.0.0`, `sha-<short>`
 
-1. **Build & Validate .NET:** Checks out the code, installs .NET SDK, restores NuGet dependencies, and verifies that the solution compiles in `Release` mode without warnings or errors.
-2. **Container Build & Smoke Test:** Sets up Docker Buildx, builds the multi-stage container image, starts a temporary container, verifies the `/healthz` and `/api/info` endpoints, and cleans up.
+To pull and run the published container from GHCR:
+```bash
+docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:latest
+```
 
 ---
 
@@ -131,7 +140,8 @@ MyTestApp/
 │   ├── rulesets/
 │   │   └── master-protection.json # Branch protection ruleset export
 │   ├── workflows/
-│   │   └── ci.yml             # GitHub Actions CI pipeline
+│   │   ├── ci.yml             # GitHub Actions CI pipeline
+│   │   └── publish.yml        # Build & publish container to ghcr.io
 │   └── dependabot.yml         # Automated dependency update configuration
 ├── src/
 │   └── MyTestApp/
