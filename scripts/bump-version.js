@@ -19,11 +19,14 @@ const currentVersion = versionMatch ? versionMatch[1].trim() : '0.1.0';
 console.log(`📦 Current version: ${currentVersion}`);
 
 function bump(version, type) {
-  const parts = version.replace(/^v/, '').split('.').map((p) => parseInt(p, 10));
-  if (parts.length < 3 || parts.some(isNaN)) {
+  const match = version.trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/);
+  if (!match) {
     throw new Error(`Cannot parse current version '${version}' as semver`);
   }
-  let [major, minor, patch] = parts;
+  let major = parseInt(match[1], 10);
+  let minor = parseInt(match[2], 10);
+  let patch = parseInt(match[3], 10);
+
   if (type === 'major') {
     major += 1;
     minor = 0;
@@ -35,8 +38,8 @@ function bump(version, type) {
     patch += 1;
   } else {
     // Custom version provided
-    const cleanCustom = type.replace(/^v/, '');
-    if (!/^\d+\.\d+\.\d+/.test(cleanCustom)) {
+    const cleanCustom = type.replace(/^v/, '').trim();
+    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(cleanCustom)) {
       throw new Error(`Invalid version format: '${type}'. Expected major, minor, patch, or SemVer (e.g. 1.0.0)`);
     }
     return cleanCustom;
@@ -71,7 +74,7 @@ function updateImageTag(filePath) {
     return;
   }
   const content = fs.readFileSync(resolvedPath, 'utf8');
-  const regex = /(ghcr\.io\/[^/]+\/mytestapp:)[^\s'"]+/g;
+  const regex = /(ghcr\.io\/[^/]+\/mytestapp:)[^\s'"]+/gi;
   const updated = content.replace(regex, `$1${rawVersion}`);
   if (content !== updated) {
     fs.writeFileSync(resolvedPath, updated, 'utf8');

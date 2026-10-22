@@ -27,6 +27,9 @@ jobs:
       - name: Build solution (Release)
         run: dotnet build MyTestApp.sln --configuration Release --no-restore
 
+      - name: Run automated tests
+        run: dotnet test MyTestApp.sln --configuration Release --no-build --verbosity normal
+
   container-build-and-test:
     name: Container Build & Smoke Test
     needs: build-and-test
