@@ -39,7 +39,7 @@ jobs:
       - name: Delete untagged and SHA-tagged images from GitHub Container Registry
         uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f  # v1
         with:
-          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           package: ${{ inputs.package_name || 'mytestapp' }}
           delete-untagged: true
           delete-tags: ${{ inputs.delete_tags || 'sha-*' }}
