@@ -157,7 +157,7 @@ The repository includes GitHub Actions workflows modeled after the [Nexus](https
 
 To pull and run the published container from GHCR:
 ```bash
-docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:0.1.2
+docker run -d -p 8080:8080 ghcr.io/arvesv/mytestapp:0.1.3
 ```
 
 ---

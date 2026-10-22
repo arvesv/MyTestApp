@@ -1,6 +1,6 @@
 services:
   mytestapp:
-    image: ghcr.io/arvesv/mytestapp:0.1.2
+    image: ghcr.io/arvesv/mytestapp:0.1.3
     build:
       context: .
       dockerfile: Dockerfile
