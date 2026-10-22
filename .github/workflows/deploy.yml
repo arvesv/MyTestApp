@@ -38,12 +38,14 @@ permissions:
 
 jobs:
   deploy:
-    name: Deploy to Cloud Run
+    name: Deploy
     runs-on: ubuntu-latest
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     environment:
       name: ${{ inputs.environment != '' && inputs.environment || 'production' }}
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ steps.cloud_run.outputs.url || steps.fly_io.outputs.url }}
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment != '' && inputs.environment || 'production' }}
 
     steps:
       - name: Checkout repository
@@ -66,83 +68,63 @@ jobs:
           echo "image=$IMAGE" >> $GITHUB_OUTPUT
           echo "Selected container image: $IMAGE"
 
-      - name: Verify GCP Authentication Setup
-        id: check_auth
+      # The target platform is selected by the GitHub Environment configuration:
+      #   - GCP_CLOUD_RUN (variable or secret, any non-empty value) -> deploy to Google Cloud Run
+      #   - FLY_IO        (variable or secret, any non-empty value) -> deploy to Fly.io
+      # Both flags may be set to deploy the same image to both platforms.
+      - name: Detect Deployment Target
+        id: target
+        env:
+          GCP_CLOUD_RUN: ${{ vars.GCP_CLOUD_RUN || secrets.GCP_CLOUD_RUN }}
+          FLY_IO: ${{ vars.FLY_IO || secrets.FLY_IO }}
         run: |
-          if [ -n "${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}" ] || \
-             [ -n "${{ secrets.GCP_SA_KEY }}" ] || \
-             [ -n "${{ secrets.GCP_CREDENTIALS }}" ]; then
-            echo "configured=true" >> $GITHUB_OUTPUT
+          TARGETS=()
+          if [ -n "$GCP_CLOUD_RUN" ]; then
+            echo "cloud_run=true" >> $GITHUB_OUTPUT
+            TARGETS+=("Google Cloud Run")
           else
-            echo "configured=false" >> $GITHUB_OUTPUT
+            echo "cloud_run=false" >> $GITHUB_OUTPUT
+          fi
+          if [ -n "$FLY_IO" ]; then
+            echo "fly_io=true" >> $GITHUB_OUTPUT
+            TARGETS+=("Fly.io")
+          else
+            echo "fly_io=false" >> $GITHUB_OUTPUT
+          fi
+
+          if [ ${#TARGETS[@]} -eq 0 ]; then
+            MESSAGE="Environment '$ENVIRONMENT_NAME' does not define GCP_CLOUD_RUN or FLY_IO (as a variable or secret), so no deployment target could be determined."
             if [ "${{ github.event_name }}" = "workflow_run" ]; then
-              echo "::warning::GCP credentials (GCP_WORKLOAD_IDENTITY_PROVIDER or GCP_SA_KEY) are not configured in environment '${{ inputs.environment != '' && inputs.environment || 'production' }}' or repository secrets. Skipping automated deployment."
+              echo "::warning::$MESSAGE Skipping automated deployment."
             else
-              echo "::error::No GCP credentials found! Please configure either Workload Identity Federation (GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT) or a Service Account Key (GCP_SA_KEY) in the '${{ inputs.environment != '' && inputs.environment || 'production' }}' environment secrets or repository secrets."
+              echo "::error::$MESSAGE Set one of them in the environment to select the deployment platform."
               exit 1
             fi
-          fi
-
-      - name: Authenticate to Google Cloud
-        if: steps.check_auth.outputs.configured == 'true'
-        id: auth
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093  # v3.0.0
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          credentials_json: ${{ secrets.GCP_SA_KEY || secrets.GCP_CREDENTIALS }}
-          project_id: ${{ vars.GCP_PROJECT_ID }}
-
-      - name: Deploy to Cloud Run
-        if: steps.check_auth.outputs.configured == 'true'
-        id: deploy
-        uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d  # v3.0.1
-        with:
-          service: ${{ vars.GCP_SERVICE_NAME || 'mytestapp' }}
-          image: ${{ steps.image_info.outputs.image }}
-          region: ${{ vars.GCP_REGION || 'europe-north2' }}
-          project_id: ${{ vars.GCP_PROJECT_ID || '' }}
-          flags: '--allow-unauthenticated'
-
-      - name: Verify Deployment Health
-        if: steps.check_auth.outputs.configured == 'true' && steps.deploy.outputs.url != ''
-        run: |
-          SERVICE_URL="${{ steps.deploy.outputs.url }}"
-          echo "Verifying health endpoint at: $SERVICE_URL/health"
-          
-          SUCCESS=false
-          for i in {1..8}; do
-            HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health" || true)
-            if [ "$HTTP_STATUS" = "200" ]; then
-              echo "Health check succeeded with HTTP 200 on attempt $i."
-              SUCCESS=true
-              break
-            fi
-            # Fallback check against /api/info
-            INFO_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/api/info" || true)
-            if [ "$INFO_STATUS" = "200" ]; then
-              echo "API info check succeeded with HTTP 200 on attempt $i."
-              SUCCESS=true
-              break
-            fi
-            echo "Service not ready yet (attempt $i/8, HTTP $HTTP_STATUS). Retrying in 5 seconds..."
-            sleep 5
-          done
-          
-          if [ "$SUCCESS" != "true" ]; then
-            echo "::error::Health check did not respond with 200 within timeout. Deployment verification failed."
-            exit 1
           else
-            curl -sf "$SERVICE_URL/health" || curl -sf "$SERVICE_URL/api/info" || true
-            echo ""
+            echo "Deployment target(s) for environment '$ENVIRONMENT_NAME': ${TARGETS[*]}"
           fi
 
-      - name: Deployment Summary
-        if: steps.check_auth.outputs.configured == 'true' && steps.deploy.outputs.url != ''
-        run: |
-          echo "### 🚀 Cloud Run Deployment Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment**: \`${{ inputs.environment != '' && inputs.environment || 'production' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service**: \`${{ vars.GCP_SERVICE_NAME || 'mytestapp' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Region**: \`${{ vars.GCP_REGION || 'europe-north2' }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image**: \`${{ steps.image_info.outputs.image }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Service URL**: [${{ steps.deploy.outputs.url }}](${{ steps.deploy.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+      - name: Deploy to Google Cloud Run
+        if: steps.target.outputs.cloud_run == 'true'
+        id: cloud_run
+        uses: ./.github/actions/deploy-cloud-run
+        with:
+          image: ${{ steps.image_info.outputs.image }}
+          environment: ${{ env.ENVIRONMENT_NAME }}
+          service: ${{ vars.GCP_SERVICE_NAME || 'mytestapp' }}
+          region: ${{ vars.GCP_REGION || 'europe-north2' }}
+          project-id: ${{ vars.GCP_PROJECT_ID || '' }}
+          workload-identity-provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          credentials-json: ${{ secrets.GCP_SA_KEY || secrets.GCP_CREDENTIALS }}
+
+      - name: Deploy to Fly.io
+        if: steps.target.outputs.fly_io == 'true'
+        id: fly_io
+        uses: ./.github/actions/deploy-fly-io
+        with:
+          image: ${{ steps.image_info.outputs.image }}
+          environment: ${{ env.ENVIRONMENT_NAME }}
+          app: ${{ vars.FLY_APP_NAME || 'mytestapp' }}
+          region: ${{ vars.FLY_REGION || '' }}
+          api-token: ${{ secrets.FLY_API_TOKEN }}

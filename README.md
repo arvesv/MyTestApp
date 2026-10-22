@@ -145,11 +145,14 @@ The repository includes GitHub Actions workflows modeled after the [Nexus](https
    - Automatically bumps version in `src/MyTestApp/MyTestApp.csproj`, `compose.yaml`, and `README.md` using `scripts/bump-version.js`.
    - Tags the repository with `vX.Y.Z`, updates the `latest` branch to the release commit, creates a GitHub Release with auto-generated release notes, and triggers container publication via `publish.yml`.
 4. **Deploy Pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml))**:
-   - Deploys container image to **Google Cloud Run** in a region close to Oslo (`europe-north2` Stockholm or `europe-north1` Finland) using a GitHub Environment (`production` or `oslo`).
-   - Configured via environment variables (`GCP_REGION`, `GCP_SERVICE_NAME`, `GCP_PROJECT_ID`).
-   - Supports keyless Workload Identity Federation (`GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT`) and Service Account keys (`GCP_SA_KEY`).
+   - Deploys the published container image to the platform selected by the target GitHub Environment (`production` by default). The environment type is detected from the environment's variables/secrets and dispatched to a private (repo-local) composite action:
+     - `GCP_CLOUD_RUN` set (any non-empty value) → [`deploy-cloud-run`](.github/actions/deploy-cloud-run/action.yml) deploys to **Google Cloud Run** in a region close to Oslo (`europe-north2` Stockholm or `europe-north1` Finland).
+       Configured via `GCP_REGION`, `GCP_SERVICE_NAME`, `GCP_PROJECT_ID`; supports keyless Workload Identity Federation (`GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT`) and Service Account keys (`GCP_SA_KEY`).
+     - `FLY_IO` set (any non-empty value) → [`deploy-fly-io`](.github/actions/deploy-fly-io/action.yml) deploys to **Fly.io** using `flyctl deploy --image`.
+       Configured via `FLY_APP_NAME` (default `mytestapp`), optional `FLY_REGION`, and the `FLY_API_TOKEN` secret.
+     - Both flags may be set to deploy the same image to both platforms. If neither is set, the run fails (manual/release) or is skipped with a warning (`workflow_run`).
    - Triggerable manually (`workflow_dispatch`), as a reusable step in the release pipeline (`workflow_call`), or automatically following successful container publishing on `master` (`workflow_run`).
-   - Includes automatic post-deployment health check against `/health` (with `/api/info` fallback).
+   - Each platform action runs the shared [`verify-deployment-health`](.github/actions/verify-deployment-health/action.yml) post-deployment check against `/health` (with `/api/info` fallback) and writes a deployment summary.
 5. **Cleanup Untagged Images ([`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml))**:
    - Scheduled daily (01:17 UTC) or manual cleanup of untagged and stale `sha-*` images from GHCR using `dataaxiom/ghcr-cleanup-action@v1`.
    - Strictly excludes and preserves images that have release or branch tags (`latest,master,v*,*.*`).
@@ -174,11 +177,17 @@ MyTestApp/
 │   │   ├── ci.yml                        # GitHub Actions CI pipeline
 │   │   ├── publish.yml                   # Build & publish container to ghcr.io
 │   │   ├── release.yml                   # Release workflow with version bump & GH release
-│   │   ├── deploy.yml                    # Deploy container to GCP Cloud Run (near Oslo)
+│   │   ├── deploy.yml                    # Detect environment type & dispatch to deploy action
 │   │   └── cleanup-untagged-images.yml   # Scheduled/manual GHCR untagged image cleanup
 │   ├── actions/
-│   │   └── container-smoke-test/
-│   │       └── action.yml                # Shared container build and smoke test
+│   │   ├── container-smoke-test/
+│   │   │   └── action.yml                # Shared container build and smoke test
+│   │   ├── deploy-cloud-run/
+│   │   │   └── action.yml                # Private action: deploy image to GCP Cloud Run
+│   │   ├── deploy-fly-io/
+│   │   │   └── action.yml                # Private action: deploy image to Fly.io
+│   │   └── verify-deployment-health/
+│   │       └── action.yml                # Shared post-deployment health check
 │   └── dependabot.yml                    # Automated dependency update configuration
 ├── scripts/
 │   └── bump-version.js                   # Semver bump script for csproj and doc references
