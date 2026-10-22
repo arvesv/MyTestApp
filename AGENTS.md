@@ -77,4 +77,4 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
 1. **Lightweight & Self-Contained**: Use built-in .NET BCL and ASP.NET Core capabilities. Avoid unnecessary external package dependencies.
 2. **Offline & Air-gapped Friendly**: Do not depend on external CDNs or external web services for styling or scripts in the web application.
 3. **Container Security**: Always follow container best practices, such as using multi-stage builds and running with the non-root `$APP_UID` user.
-4. **Documentation**: Keep [`README.md`](README.md) and [`agents.md`](agents.md) synchronized with any changes to build steps, endpoints, or environment variables.
+4. **Documentation**: Keep [`README.md`](README.md) and [`AGENTS.md`](AGENTS.md) synchronized with any changes to build steps, endpoints, or environment variables.

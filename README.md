@@ -204,5 +204,5 @@ MyTestApp/
 ├── LICENSE
 ├── MyTestApp.sln                         # Solution file
 ├── README.md                             # Project documentation
-└── agents.md                             # Guidelines for AI agents (commit attribution & conventions)
+└── AGENTS.md                             # Guidelines for AI agents (commit attribution & conventions)
 ```
