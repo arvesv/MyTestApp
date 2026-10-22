@@ -4,7 +4,7 @@ namespace MyTestApp.Tests;
 
 public class HtmlRendererTests
 {
-    private static SystemInfo CreateSampleInfo(string? releaseVersion = null, string branch = "master")
+    private static SystemInfo CreateSampleInfo(string? releaseVersion = null, string branch = "master", string? gitTag = null)
     {
         return new SystemInfo
         {
@@ -34,6 +34,7 @@ public class HtmlRendererTests
             GitCommitSha = "abcdef1234567890",
             BuildDate = "2026-10-22 04:45:00 UTC",
             GitBranch = branch,
+            GitTag = gitTag,
             ReleaseVersion = releaseVersion
         };
     }
@@ -76,6 +77,26 @@ public class HtmlRendererTests
 
         Assert.DoesNotContain("Release Version", html);
         Assert.Contains("pill-branch", html);
+    }
+
+    [Fact]
+    public void Render_WithTag_ShowsTagInFooterCommit()
+    {
+        var info = CreateSampleInfo(releaseVersion: "v0.1.3", branch: "master", gitTag: "v0.1.3");
+        var html = HtmlRenderer.Render(info);
+
+        Assert.Contains("(v0.1.3)", html);
+        Assert.Contains(">abcdef1</code></a> (v0.1.3)", html);
+    }
+
+    [Fact]
+    public void Render_WithoutTag_ShowsBranchInFooterCommit()
+    {
+        var info = CreateSampleInfo(releaseVersion: null, branch: "master", gitTag: null);
+        var html = HtmlRenderer.Render(info);
+
+        Assert.Contains("(master)", html);
+        Assert.Contains(">abcdef1</code></a> (master)", html);
     }
 
     [Fact]

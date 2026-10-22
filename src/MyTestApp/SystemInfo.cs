@@ -41,6 +41,7 @@ public record SystemInfo
     public required string GitCommitSha { get; init; }
     public required string BuildDate { get; init; }
     public required string GitBranch { get; init; }
+    public string? GitTag { get; init; }
     public string? ReleaseVersion { get; init; }
 
     public string ShortCommitSha => GitCommitSha.Length > 7 ? GitCommitSha[..7] : GitCommitSha;
@@ -61,6 +62,7 @@ public record SystemInfo
         string GitCommitSha,
         string BuildDate,
         string GitBranch,
+        string? GitTag,
         string? ReleaseVersion
     );
 
@@ -124,18 +126,21 @@ public record SystemInfo
         {
             tag = TryRunGit("describe --tags --exact-match");
         }
+        string? gitTag = !string.IsNullOrWhiteSpace(tag)
+            ? (tag.StartsWith('v') ? tag : $"v{tag}")
+            : null;
 
         // Determine if running on master branch:
         // Considered on master if branch is "master" and not built from an explicit release tag
         bool isOnMaster = string.Equals(branch, "master", StringComparison.OrdinalIgnoreCase)
-                          && string.IsNullOrWhiteSpace(tag);
+                          && string.IsNullOrWhiteSpace(gitTag);
 
         string? releaseVersion = null;
         if (!isOnMaster)
         {
-            if (!string.IsNullOrWhiteSpace(tag))
+            if (!string.IsNullOrWhiteSpace(gitTag))
             {
-                releaseVersion = tag.StartsWith('v') ? tag : $"v{tag}";
+                releaseVersion = gitTag;
             }
             else
             {
@@ -159,6 +164,7 @@ public record SystemInfo
             GitCommitSha: commitSha,
             BuildDate: buildTime,
             GitBranch: branch,
+            GitTag: gitTag,
             ReleaseVersion: releaseVersion
         );
     }
@@ -210,6 +216,7 @@ public record SystemInfo
             GitCommitSha = StaticData.GitCommitSha,
             BuildDate = StaticData.BuildDate,
             GitBranch = StaticData.GitBranch,
+            GitTag = StaticData.GitTag,
             ReleaseVersion = StaticData.ReleaseVersion
         };
     }

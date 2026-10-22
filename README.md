@@ -58,6 +58,7 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
   "gitCommitSha": "006420313cae697ce32fdbddcb0319ca03e07cb8",
   "buildDate": "2026-10-20T17:28:43Z",
   "gitBranch": "master",
+  "gitTag": null,
   "releaseVersion": null,
   "shortCommitSha": "0064203"
 }
