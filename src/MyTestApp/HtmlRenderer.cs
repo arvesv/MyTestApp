@@ -40,6 +40,8 @@ public static class HtmlRenderer
             ? $"&bull; <a href=\"{repoUrl}/releases/tag/{Encode(info.ReleaseVersion)}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"commit-link\">{Encode(info.ReleaseVersion)}</a> "
             : string.Empty;
 
+        var commitRef = !string.IsNullOrWhiteSpace(info.GitTag) ? info.GitTag : info.GitBranch;
+
         return $$"""
         <!DOCTYPE html>
         <html lang="en">
@@ -428,7 +430,7 @@ public static class HtmlRenderer
                 </div>
 
                 <footer>
-                    <p>MyTestApp {{footerVersionInfo}}&bull; Commit {{commitShaDisplay}} ({{Encode(info.GitBranch)}}) &bull; Built {{Encode(info.BuildDate)}} &bull; Rendered at {{Encode(info.CurrentUtcTime)}}</p>
+                    <p>MyTestApp {{footerVersionInfo}}&bull; Commit {{commitShaDisplay}} ({{Encode(commitRef)}}) &bull; Built {{Encode(info.BuildDate)}} &bull; Rendered at {{Encode(info.CurrentUtcTime)}}</p>
                     <div class="actions">
                         <button class="refresh-btn" onclick="window.location.reload()">Refresh</button>
                         <a href="/api/info" target="_blank" rel="noopener noreferrer">View JSON</a>
