@@ -1,0 +1,53 @@
+name: Verify deployment health
+description: Poll a deployed service until /health (or /api/info as fallback) responds with HTTP 200
+inputs:
+  url:
+    description: Base URL of the deployed service (e.g. https://mytestapp.example.com)
+    required: true
+  attempts:
+    description: Maximum number of health check attempts
+    required: false
+    default: '8'
+  delay-seconds:
+    description: Seconds to wait between attempts
+    required: false
+    default: '5'
+runs:
+  using: composite
+  steps:
+    - name: Verify deployment health
+      shell: bash
+      env:
+        SERVICE_URL: ${{ inputs.url }}
+        ATTEMPTS: ${{ inputs.attempts }}
+        DELAY: ${{ inputs.delay-seconds }}
+      run: |
+        SERVICE_URL="${SERVICE_URL%/}"
+        echo "Verifying health endpoint at: $SERVICE_URL/health"
+
+        SUCCESS=false
+        for i in $(seq 1 "$ATTEMPTS"); do
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/health" || true)
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Health check succeeded with HTTP 200 on attempt $i."
+            SUCCESS=true
+            break
+          fi
+          # Fallback check against /api/info
+          INFO_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$SERVICE_URL/api/info" || true)
+          if [ "$INFO_STATUS" = "200" ]; then
+            echo "API info check succeeded with HTTP 200 on attempt $i."
+            SUCCESS=true
+            break
+          fi
+          echo "Service not ready yet (attempt $i/$ATTEMPTS, HTTP $HTTP_STATUS). Retrying in $DELAY seconds..."
+          sleep "$DELAY"
+        done
+
+        if [ "$SUCCESS" != "true" ]; then
+          echo "::error::Health check did not respond with 200 within timeout. Deployment verification failed."
+          exit 1
+        else
+          curl -sf "$SERVICE_URL/health" || curl -sf "$SERVICE_URL/api/info" || true
+          echo ""
+        fi

@@ -49,8 +49,13 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
   - CI Pipeline: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
   - Container Publish: [`.github/workflows/publish.yml`](.github/workflows/publish.yml)
   - Release Pipeline: [`.github/workflows/release.yml`](.github/workflows/release.yml)
-  - Deploy Pipeline: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+  - Deploy Pipeline: [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — detects the environment type (`GCP_CLOUD_RUN` or `FLY_IO` variable/secret) and dispatches to a private action
   - GHCR Package Cleanup: [`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml)
+- **Private (repo-local) Actions** in [`.github/actions/`](.github/actions/):
+  - Container smoke test: [`container-smoke-test`](.github/actions/container-smoke-test/action.yml)
+  - Deploy to Google Cloud Run: [`deploy-cloud-run`](.github/actions/deploy-cloud-run/action.yml)
+  - Deploy to Fly.io: [`deploy-fly-io`](.github/actions/deploy-fly-io/action.yml)
+  - Post-deployment health check: [`verify-deployment-health`](.github/actions/verify-deployment-health/action.yml)
 - **Automation Scripts**:
   - Version bump: [`scripts/bump-version.js`](scripts/bump-version.js)
 

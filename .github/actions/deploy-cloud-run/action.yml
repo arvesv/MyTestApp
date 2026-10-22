@@ -1,0 +1,94 @@
+name: Deploy to Google Cloud Run
+description: Authenticate to Google Cloud, deploy a prebuilt container image to Cloud Run, and verify its health
+inputs:
+  image:
+    description: Fully qualified container image to deploy (e.g. ghcr.io/arvesv/mytestapp:latest)
+    required: true
+  environment:
+    description: Name of the GitHub Environment being deployed (used for log messages and the summary)
+    required: false
+    default: production
+  service:
+    description: Cloud Run service name
+    required: false
+    default: mytestapp
+  region:
+    description: Cloud Run region
+    required: false
+    default: europe-north2
+  project-id:
+    description: Google Cloud project ID
+    required: false
+    default: ''
+  workload-identity-provider:
+    description: Workload Identity Federation provider resource name (keyless auth)
+    required: false
+    default: ''
+  service-account:
+    description: Service account e-mail to impersonate via Workload Identity Federation
+    required: false
+    default: ''
+  credentials-json:
+    description: Service account key JSON (fallback when Workload Identity Federation is not configured)
+    required: false
+    default: ''
+outputs:
+  url:
+    description: URL of the deployed Cloud Run service
+    value: ${{ steps.deploy.outputs.url }}
+runs:
+  using: composite
+  steps:
+    - name: Verify GCP authentication setup
+      shell: bash
+      env:
+        WIF_PROVIDER: ${{ inputs.workload-identity-provider }}
+        CREDENTIALS_JSON: ${{ inputs.credentials-json }}
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        if [ -z "$WIF_PROVIDER" ] && [ -z "$CREDENTIALS_JSON" ]; then
+          echo "::error::No GCP credentials found! Please configure either Workload Identity Federation (GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT) or a Service Account Key (GCP_SA_KEY) in the '$ENVIRONMENT' environment secrets or repository secrets."
+          exit 1
+        fi
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093  # v3.0.0
+      with:
+        workload_identity_provider: ${{ inputs.workload-identity-provider }}
+        service_account: ${{ inputs.service-account }}
+        credentials_json: ${{ inputs.credentials-json }}
+        project_id: ${{ inputs.project-id }}
+
+    - name: Deploy to Cloud Run
+      id: deploy
+      uses: google-github-actions/deploy-cloudrun@2028e2d7d30a78c6910e0632e48dd561b064884d  # v3.0.1
+      with:
+        service: ${{ inputs.service }}
+        image: ${{ inputs.image }}
+        region: ${{ inputs.region }}
+        project_id: ${{ inputs.project-id }}
+        flags: '--allow-unauthenticated'
+
+    - name: Verify deployment health
+      if: steps.deploy.outputs.url != ''
+      uses: ./.github/actions/verify-deployment-health
+      with:
+        url: ${{ steps.deploy.outputs.url }}
+
+    - name: Deployment summary
+      if: steps.deploy.outputs.url != ''
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        SERVICE: ${{ inputs.service }}
+        REGION: ${{ inputs.region }}
+        IMAGE: ${{ inputs.image }}
+        URL: ${{ steps.deploy.outputs.url }}
+      run: |
+        echo "### 🚀 Cloud Run Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: \`$ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service**: \`$SERVICE\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Region**: \`$REGION\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image**: \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Service URL**: [$URL]($URL)" >> $GITHUB_STEP_SUMMARY

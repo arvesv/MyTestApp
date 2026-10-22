@@ -1,0 +1,100 @@
+name: Deploy to Fly.io
+description: Install flyctl, deploy a prebuilt container image to a Fly.io app, and verify its health
+inputs:
+  image:
+    description: Fully qualified container image to deploy (e.g. ghcr.io/arvesv/mytestapp:latest)
+    required: true
+  environment:
+    description: Name of the GitHub Environment being deployed (used for log messages and the summary)
+    required: false
+    default: production
+  app:
+    description: Fly.io application name
+    required: false
+    default: mytestapp
+  region:
+    description: Fly.io region to deploy machines into (leave empty to keep the app's current regions)
+    required: false
+    default: ''
+  api-token:
+    description: Fly.io API/deploy token (FLY_API_TOKEN)
+    required: true
+  flyctl-version:
+    description: flyctl version to install (e.g. 0.3.2), or "latest"
+    required: false
+    default: latest
+outputs:
+  url:
+    description: Public URL of the deployed Fly.io app
+    value: ${{ steps.app_info.outputs.url }}
+runs:
+  using: composite
+  steps:
+    - name: Verify Fly.io authentication setup
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.api-token }}
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        if [ -z "$FLY_API_TOKEN" ]; then
+          echo "::error::No Fly.io credentials found! Please configure FLY_API_TOKEN in the '$ENVIRONMENT' environment secrets or repository secrets."
+          exit 1
+        fi
+
+    - name: Set up flyctl
+      uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1  # v1.6
+      with:
+        version: ${{ inputs.flyctl-version || 'latest' }}
+
+    - name: Deploy to Fly.io
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.api-token }}
+        FLY_APP: ${{ inputs.app }}
+        FLY_REGION: ${{ inputs.region }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        ARGS=(--app "$FLY_APP" --image "$IMAGE" --yes)
+        if [ -n "$FLY_REGION" ]; then
+          ARGS+=(--regions "$FLY_REGION")
+        fi
+        echo "Deploying $IMAGE to Fly.io app '$FLY_APP'..."
+        flyctl deploy "${ARGS[@]}"
+
+    - name: Resolve app URL
+      id: app_info
+      shell: bash
+      env:
+        FLY_API_TOKEN: ${{ inputs.api-token }}
+        FLY_APP: ${{ inputs.app }}
+      run: |
+        HOSTNAME=$(flyctl status --app "$FLY_APP" --json 2>/dev/null | jq -r '.Hostname // empty' || true)
+        if [ -z "$HOSTNAME" ]; then
+          HOSTNAME="$FLY_APP.fly.dev"
+        fi
+        URL="https://$HOSTNAME"
+        echo "url=$URL" >> $GITHUB_OUTPUT
+        echo "Fly.io app URL: $URL"
+
+    - name: Verify deployment health
+      if: steps.app_info.outputs.url != ''
+      uses: ./.github/actions/verify-deployment-health
+      with:
+        url: ${{ steps.app_info.outputs.url }}
+
+    - name: Deployment summary
+      if: steps.app_info.outputs.url != ''
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        FLY_APP: ${{ inputs.app }}
+        FLY_REGION: ${{ inputs.region }}
+        IMAGE: ${{ inputs.image }}
+        URL: ${{ steps.app_info.outputs.url }}
+      run: |
+        echo "### 🚀 Fly.io Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: \`$ENVIRONMENT\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **App**: \`$FLY_APP\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Region**: \`${FLY_REGION:-app default}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Image**: \`$IMAGE\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **App URL**: [$URL]($URL)" >> $GITHUB_STEP_SUMMARY
