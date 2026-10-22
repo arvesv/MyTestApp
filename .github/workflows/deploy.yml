@@ -54,7 +54,11 @@ jobs:
         run: |
           TAG="${{ inputs.image_tag }}"
           if [ -z "$TAG" ]; then
-            TAG="latest"
+            if [ "${{ github.event_name }}" = "workflow_run" ]; then
+              TAG="${{ github.event.workflow_run.head_branch || 'master' }}"
+            else
+              TAG="latest"
+            fi
           fi
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           IMAGE="ghcr.io/$REPO_LOWER:$TAG"
@@ -126,7 +130,8 @@ jobs:
           done
           
           if [ "$SUCCESS" != "true" ]; then
-            echo "::warning::Health check did not respond with 200 within timeout."
+            echo "::error::Health check did not respond with 200 within timeout. Deployment verification failed."
+            exit 1
           else
             curl -sf "$SERVICE_URL/health" || curl -sf "$SERVICE_URL/api/info" || true
             echo ""

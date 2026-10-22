@@ -5,6 +5,17 @@ var app = builder.Build();
 
 var appStartTime = DateTimeOffset.UtcNow;
 
+// Security and caching headers middleware
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
+    context.Response.Headers.Append("X-Frame-Options", "DENY");
+    context.Response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+    context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+    context.Response.Headers.Append("Pragma", "no-cache");
+    await next();
+});
+
 // Root endpoint: renders server-side HTML system diagnostics or JSON if requested
 app.MapGet("/", (HttpContext context) =>
 {
@@ -29,16 +40,15 @@ app.MapGet("/api/info", () =>
 });
 
 // Container health check endpoints (supports both /health and /healthz; Cloud Run infrastructure reserves /healthz)
-app.MapGet("/health", () => Results.Ok(new
+var healthCheck = () => Results.Ok(new
 {
     status = "Healthy",
     timestamp = DateTimeOffset.UtcNow
-}));
+});
 
-app.MapGet("/healthz", () => Results.Ok(new
-{
-    status = "Healthy",
-    timestamp = DateTimeOffset.UtcNow
-}));
+app.MapGet("/health", healthCheck);
+app.MapGet("/healthz", healthCheck);
 
 app.Run();
+
+public partial class Program { }

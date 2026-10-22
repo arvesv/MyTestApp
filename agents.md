@@ -62,6 +62,7 @@ Co-authored-by: Antigravity <antigravity@users.noreply.github.com>
 | :--- | :--- |
 | **Restore** | `dotnet restore` |
 | **Build** | `dotnet build` |
+| **Test** | `dotnet test` |
 | **Run locally** | `dotnet run --project src/MyTestApp` |
 | **Bump version** | `node scripts/bump-version.js [patch\|minor\|major\|custom]` |
 | **Build container** | `docker build -t mytestapp:latest .` |

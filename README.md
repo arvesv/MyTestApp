@@ -80,6 +80,9 @@ A lightweight, server-rendered ASP.NET Core web application packaged in Docker. 
 # Build the solution
 dotnet build
 
+# Run unit and integration tests
+dotnet test
+
 # Run the web application
 dotnet run --project src/MyTestApp
 ```
@@ -145,7 +148,7 @@ The repository includes GitHub Actions workflows modeled after the [Nexus](https
    - Configured via environment variables (`GCP_REGION`, `GCP_SERVICE_NAME`, `GCP_PROJECT_ID`).
    - Supports keyless Workload Identity Federation (`GCP_WORKLOAD_IDENTITY_PROVIDER` + `GCP_SERVICE_ACCOUNT`) and Service Account keys (`GCP_SA_KEY`).
    - Triggerable manually (`workflow_dispatch`), as a reusable step in the release pipeline (`workflow_call`), or automatically following successful container publishing on `master` (`workflow_run`).
-   - Includes automatic post-deployment health check against `/healthz`.
+   - Includes automatic post-deployment health check against `/health` (with `/api/info` fallback).
 5. **Cleanup Untagged Images ([`.github/workflows/cleanup-untagged-images.yml`](.github/workflows/cleanup-untagged-images.yml))**:
    - Scheduled daily (01:17 UTC) or manual cleanup of untagged and stale `sha-*` images from GHCR using `dataaxiom/ghcr-cleanup-action@v1`.
    - Strictly excludes and preserves images that have release or branch tags (`latest,master,v*,*.*`).
@@ -186,6 +189,12 @@ MyTestApp/
 │       ├── MyTestApp.csproj              # ASP.NET Core project file
 │       ├── Program.cs                    # Application entry point & endpoints
 │       └── SystemInfo.cs                 # Diagnostics and system telemetry collector
+├── tests/
+│   └── MyTestApp.Tests/
+│       ├── EndpointTests.cs              # Integration tests for HTTP & health endpoints
+│       ├── HtmlRendererTests.cs          # Unit tests for HTML rendering & XSS safety
+│       ├── MyTestApp.Tests.csproj        # xUnit test project
+│       └── SystemInfoTests.cs            # Unit tests for diagnostics telemetry
 ├── .dockerignore                         # Files excluded from Docker builds
 ├── .gitattributes                        # Git line ending & attribute definitions
 ├── .gitignore                            # Files excluded from Git version control

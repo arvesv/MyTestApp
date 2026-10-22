@@ -8,12 +8,19 @@ public static class HtmlRenderer
     {
         string Encode(object? val) => WebUtility.HtmlEncode(val?.ToString() ?? string.Empty);
 
+        var repoSlug = Environment.GetEnvironmentVariable("GITHUB_REPOSITORY")?.Trim();
+        if (string.IsNullOrEmpty(repoSlug))
+        {
+            repoSlug = "arvesv/MyTestApp";
+        }
+        var repoUrl = $"https://github.com/{Encode(repoSlug)}";
+
         var releaseVersionRow = info.ReleaseVersion != null
             ? $"""
               <div class="row">
                   <span class="label">Release Version</span>
                   <span class="value">
-                      <a href="https://github.com/arvesv/MyTestApp/releases/tag/{Encode(info.ReleaseVersion)}" target="_blank" rel="noopener noreferrer" class="release-link" title="View release on GitHub">
+                      <a href="{repoUrl}/releases/tag/{Encode(info.ReleaseVersion)}" target="_blank" rel="noopener noreferrer" class="release-link" title="View release on GitHub">
                           <span class="pill pill-release">{Encode(info.ReleaseVersion)}</span>
                       </a>
                   </span>
@@ -22,7 +29,7 @@ public static class HtmlRenderer
             : string.Empty;
 
         var commitShaDisplay = info.GitCommitSha != "unknown"
-            ? $"""<a href="https://github.com/arvesv/MyTestApp/commit/{Encode(info.GitCommitSha)}" target="_blank" rel="noopener noreferrer" class="commit-link" title="View commit on GitHub"><code class="sha">{Encode(info.ShortCommitSha)}</code></a>"""
+            ? $"""<a href="{repoUrl}/commit/{Encode(info.GitCommitSha)}" target="_blank" rel="noopener noreferrer" class="commit-link" title="View commit on GitHub"><code class="sha">{Encode(info.ShortCommitSha)}</code></a>"""
             : $"""<code class="sha">{Encode(info.ShortCommitSha)}</code>""";
 
         var headerVersionBadge = info.ReleaseVersion != null
@@ -30,7 +37,7 @@ public static class HtmlRenderer
             : $"<span>&bull;</span><span>{Encode(info.GitBranch)}</span>";
 
         var footerVersionInfo = info.ReleaseVersion != null
-            ? $"&bull; <a href=\"https://github.com/arvesv/MyTestApp/releases/tag/{Encode(info.ReleaseVersion)}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"commit-link\">{Encode(info.ReleaseVersion)}</a> "
+            ? $"&bull; <a href=\"{repoUrl}/releases/tag/{Encode(info.ReleaseVersion)}\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"commit-link\">{Encode(info.ReleaseVersion)}</a> "
             : string.Empty;
 
         return $$"""
@@ -424,8 +431,8 @@ public static class HtmlRenderer
                     <p>MyTestApp {{footerVersionInfo}}&bull; Commit {{commitShaDisplay}} ({{Encode(info.GitBranch)}}) &bull; Built {{Encode(info.BuildDate)}} &bull; Rendered at {{Encode(info.CurrentUtcTime)}}</p>
                     <div class="actions">
                         <button class="refresh-btn" onclick="window.location.reload()">Refresh</button>
-                        <a href="/api/info" target="_blank">View JSON</a>
-                        <a href="/health" target="_blank">Health Check</a>
+                        <a href="/api/info" target="_blank" rel="noopener noreferrer">View JSON</a>
+                        <a href="/health" target="_blank" rel="noopener noreferrer">Health Check</a>
                     </div>
                 </footer>
             </div>

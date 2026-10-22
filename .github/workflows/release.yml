@@ -53,6 +53,9 @@ jobs:
       - name: Build solution (Release)
         run: dotnet build MyTestApp.sln --configuration Release --no-restore
 
+      - name: Run automated tests
+        run: dotnet test MyTestApp.sln --configuration Release --no-build --verbosity normal
+
       - name: Bump version & Update files
         id: bump
         run: |
