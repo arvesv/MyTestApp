@@ -12,7 +12,7 @@ WORKDIR /src/src/MyTestApp
 RUN dotnet publish MyTestApp.csproj -c Release -o /app/publish --no-restore
 
 # Stage 2: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 
 ARG GIT_COMMIT_SHA=""
